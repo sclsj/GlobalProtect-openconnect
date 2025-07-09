@@ -36,7 +36,7 @@ jobs:
       - name: Setup macOS Dependencies
         run: |
           # Install dependencies required by the Makefile and build process
-          brew install jq pnpm
+          brew install jq pnpm pkg-config openconnect
           
           # Install Rust and set the path
           rustup-init -y --default-toolchain stable
