@@ -1,0 +1,72 @@
+name: Build macOS arm64
+on:
+  push:
+    paths-ignore:
+      - LICENSE
+      - "*.md"
+      - .vscode
+      - .devcontainer
+    branches:
+      - main
+      - dev
+      - hotfix/*
+      - feature/*
+      - release/*
+    tags:
+      - v*.*.*
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-macos-arm64:
+    name: Build macOS (Apple Silicon)
+    runs-on: macos-latest
+    steps:
+      - name: Prepare Workspace
+        run: mkdir -p ./source/artifacts
+
+      - name: Checkout GlobalProtect-openconnect
+        uses: actions/checkout@v4
+        with:
+          repository: yuezk/GlobalProtect-openconnect
+          ref: ${{ github.ref }}
+          path: source/gp
+
+      - name: Checkout gpgui
+        uses: actions/checkout@v4
+        with:
+          repository: yuezk/gpgui
+          ref: ${{ github.ref_name }} # Assumes gpgui tag matches gp tag
+          path: source/gpgui
+
+      - name: Setup macOS Dependencies
+        run: |
+          # Install Tauri prerequisites and other dependencies via Homebrew
+          brew install openconnect jq perl pnpm
+          
+          # Install Rust
+          rustup-init -y --default-toolchain stable
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          
+          # Add the arm64 target for Rust
+          rustup target add aarch64-apple-darwin
+
+      - name: Build arm64 App
+        run: |
+          cd source/gpgui
+          pnpm install
+          
+          # Build the Tauri app, specifically targeting Apple Silicon (arm64)
+          pnpm tauri build --target aarch64-apple-darwin --verbose
+          
+          # Move the final .dmg file to the artifacts directory
+          cp src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg ../artifacts/
+
+      - name: Upload macOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gpgui-macos-arm64
+          if-no-files-found: error
+          path: source/artifacts/*.dmg
